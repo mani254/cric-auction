@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import path from "path";
 import fs from "fs";
+import dns from "node:dns";
+
+// Fix Windows DNS SRV ECONNREFUSED for MongoDB Atlas
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (e) {
+  // ignore
+}
 
 // Load .env.local if not already in environment (e.g. running standalone scripts)
 if (!process.env.MONGODB_URI) {

@@ -7,7 +7,12 @@ import { Team } from "../models/Team";
 import { AuctionState } from "../models/AuctionState";
 import { AuctionEvent } from "../models/AuctionEvent";
 
-const DATA_PATH = path.resolve(__dirname, "../../../data/players.json");
+const candidates = [
+  path.resolve(__dirname, "../../data/players.json"),
+  path.resolve(__dirname, "../../../data/players.json"),
+  path.resolve(process.cwd(), "data/players.json"),
+];
+const DATA_PATH = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
 const DEFAULT_BUDGET = Number(process.env.DEFAULT_TEAM_BUDGET) || 10000000;
 
