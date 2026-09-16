@@ -4,11 +4,21 @@ import { AuctionState } from "@/models/AuctionState";
 import { Player } from "@/models/Player";
 import { Team } from "@/models/Team";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await connectToDatabase();
 
-    let auctionState = await AuctionState.findOne({ sessionKey: "primary" });
+    const { searchParams } = new URL(req.url);
+    const includePlayers = searchParams.get("includePlayers") === "true";
+
+    // Run core queries concurrently in a single round-trip
+    const [auctionStateDoc, teams, allPlayers] = await Promise.all([
+      AuctionState.findOne({ sessionKey: "primary" }),
+      Team.find({}).sort({ id: 1 }).lean(),
+      Player.find({}).sort({ id: 1 }).lean(),
+    ]);
+
+    let auctionState = auctionStateDoc;
     if (!auctionState) {
       auctionState = await AuctionState.create({
         sessionKey: "primary",
@@ -23,21 +33,24 @@ export async function GET() {
 
     let currentPlayer = null;
     if (auctionState.currentPlayerId) {
-      currentPlayer = await Player.findOne({ id: auctionState.currentPlayerId }).lean();
+      currentPlayer = allPlayers.find((p) => p.id === auctionState!.currentPlayerId) || null;
     }
 
-    const teams = await Team.find({}).sort({ id: 1 }).lean();
+    // High-speed in-memory summary calculation (eliminates 4 slow remote countDocuments round-trips)
+    const totalCount = allPlayers.length;
+    let soldCount = 0;
+    let unsoldCount = 0;
+    let remainingCount = 0;
 
-    const totalCount = await Player.countDocuments();
-    const soldCount = await Player.countDocuments({ auctionStatus: "SOLD" });
-    const unsoldCount = await Player.countDocuments({ auctionStatus: "UNSOLD" });
-    const remainingCount = await Player.countDocuments({
-      auctionStatus: { $in: ["NOT_STARTED", "CURRENT"] },
-    });
+    for (const p of allPlayers) {
+      if (p.auctionStatus === "SOLD") soldCount++;
+      else if (p.auctionStatus === "UNSOLD") unsoldCount++;
+      else remainingCount++;
+    }
 
     const totalPurseSpent = teams.reduce((acc, t) => acc + (t.totalSpent || 0), 0);
 
-    return NextResponse.json({
+    const resPayload: Record<string, any> = {
       success: true,
       auctionState,
       currentPlayer,
@@ -49,7 +62,13 @@ export async function GET() {
         remaining: remainingCount,
         totalPurseSpent,
       },
-    });
+    };
+
+    if (includePlayers) {
+      resPayload.players = allPlayers;
+    }
+
+    return NextResponse.json(resPayload);
   } catch (error: any) {
     console.error("GET /api/auction error:", error);
     return NextResponse.json(

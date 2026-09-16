@@ -11,18 +11,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { teamId, increment, customAmount, isOpeningBid } = body;
 
-    const auctionState = await AuctionState.findOne({ sessionKey: "primary" });
+    // Parallel initial lookups if teamId is provided
+    const [auctionState, initialTeam] = await Promise.all([
+      AuctionState.findOne({ sessionKey: "primary" }),
+      teamId ? Team.findOne({ id: teamId }) : Promise.resolve(null),
+    ]);
+
     if (!auctionState || !auctionState.currentPlayerId) {
       return NextResponse.json(
         { success: false, error: "No active player currently under auction." },
-        { status: 400 }
-      );
-    }
-
-    const player = await Player.findOne({ id: auctionState.currentPlayerId });
-    if (!player || player.auctionStatus !== "CURRENT") {
-      return NextResponse.json(
-        { success: false, error: "Active player is not in CURRENT auction status." },
         { status: 400 }
       );
     }
@@ -35,7 +32,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const team = await Team.findOne({ id: targetTeamId });
+    const [player, team] = await Promise.all([
+      Player.findOne({ id: auctionState.currentPlayerId }),
+      initialTeam && initialTeam.id === targetTeamId ? Promise.resolve(initialTeam) : Team.findOne({ id: targetTeamId }),
+    ]);
+
+    if (!player || player.auctionStatus !== "CURRENT") {
+      return NextResponse.json(
+        { success: false, error: "Active player is not in CURRENT auction status." },
+        { status: 400 }
+      );
+    }
+
     if (!team) {
       return NextResponse.json(
         { success: false, error: `Team ${targetTeamId} not found.` },
@@ -87,6 +95,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const prevBid = auctionState.currentBid;
+
     // Update auction state
     auctionState.currentBid = newBid;
     auctionState.currentTeamId = team.id;
@@ -97,19 +107,21 @@ export async function POST(req: NextRequest) {
       amount: newBid,
       timestamp: new Date(),
     });
-    await auctionState.save();
 
-    // Log event
-    await AuctionEvent.create({
-      eventType: "BID",
-      playerId: player.id,
-      playerName: player.name,
-      teamId: team.id,
-      teamName: team.name,
-      amount: newBid,
-      details: { previousBid: auctionState.currentBid, newBid },
-      timestamp: new Date(),
-    });
+    // Run database writes in parallel
+    await Promise.all([
+      auctionState.save(),
+      AuctionEvent.create({
+        eventType: "BID",
+        playerId: player.id,
+        playerName: player.name,
+        teamId: team.id,
+        teamName: team.name,
+        amount: newBid,
+        details: { previousBid: prevBid, newBid },
+        timestamp: new Date(),
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

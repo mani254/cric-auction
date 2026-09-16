@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     player.soldPrice = null;
     player.teamId = null;
     player.teamName = null;
-    await player.save();
 
     // Clear auction state active player
     auctionState.currentPlayerId = null;
@@ -39,19 +38,22 @@ export async function POST(req: NextRequest) {
     auctionState.currentTeamId = null;
     auctionState.currentTeamName = null;
     auctionState.bidHistory = [];
-    await auctionState.save();
 
-    // Log UNSOLD event
-    await AuctionEvent.create({
-      eventType: "UNSOLD",
-      playerId: player.id,
-      playerName: player.name,
-      teamId: null,
-      teamName: null,
-      amount: player.basePrice,
-      details: { role: player.role, basePrice: player.basePrice },
-      timestamp: new Date(),
-    });
+    // Run saves and event log concurrently
+    await Promise.all([
+      player.save(),
+      auctionState.save(),
+      AuctionEvent.create({
+        eventType: "UNSOLD",
+        playerId: player.id,
+        playerName: player.name,
+        teamId: null,
+        teamName: null,
+        amount: player.basePrice,
+        details: { role: player.role, basePrice: player.basePrice },
+        timestamp: new Date(),
+      }),
+    ]);
 
     const nextPlayer: any = await Player.findOne({ auctionStatus: "NOT_STARTED" }).sort({ id: 1 }).lean();
 

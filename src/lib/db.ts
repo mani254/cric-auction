@@ -3,11 +3,14 @@ import path from "path";
 import fs from "fs";
 import dns from "node:dns";
 
-// Fix Windows DNS SRV ECONNREFUSED for MongoDB Atlas
-try {
-  dns.setServers(["8.8.8.8", "1.1.1.1"]);
-} catch (e) {
-  // ignore
+// Fix Windows DNS SRV ECONNREFUSED for MongoDB Atlas only in local Windows development
+// Avoid doing this in Vercel/Linux serverless to allow native AWS VPC DNS caching
+if (process.platform === "win32" && process.env.NODE_ENV !== "production") {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch (e) {
+    // ignore
+  }
 }
 
 // Load .env.local if not already in environment (e.g. running standalone scripts)
@@ -59,13 +62,18 @@ if (!global.mongooseCache) {
 }
 
 export async function connectToDatabase(): Promise<typeof mongoose> {
-  if (cached.conn) {
+  // If connection exists and is alive (readyState === 1: connected), reuse it
+  if (cached.conn && cached.conn.connection && cached.conn.connection.readyState === 1) {
     return cached.conn;
   }
 
-  if (!cached.promise) {
+  // If connection dropped or not established, create a new promise
+  if (!cached.promise || (cached.conn && cached.conn.connection.readyState !== 1)) {
     const opts = {
       bufferCommands: false,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     };
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
       console.log(`[MongoDB] Connected successfully to: ${m.connection.host || m.connection.name}`);
@@ -77,6 +85,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
     cached.conn = await cached.promise;
   } catch (e) {
     cached.promise = null;
+    cached.conn = null;
     throw e;
   }
 

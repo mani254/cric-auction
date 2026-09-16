@@ -65,7 +65,6 @@ export async function POST(req: NextRequest) {
     player.soldPrice = null;
     player.teamId = null;
     player.teamName = null;
-    await player.save();
 
     auctionState.status = "LIVE";
     auctionState.currentPlayerId = player.id;
@@ -73,18 +72,22 @@ export async function POST(req: NextRequest) {
     auctionState.currentTeamId = null;
     auctionState.currentTeamName = null;
     auctionState.bidHistory = [];
-    await auctionState.save();
 
-    await AuctionEvent.create({
-      eventType: "PLAYER_STARTED",
-      playerId: player.id,
-      playerName: player.name,
-      teamId: null,
-      teamName: null,
-      amount: player.basePrice,
-      details: { role: player.role, basePrice: player.basePrice },
-      timestamp: new Date(),
-    });
+    // Run saves concurrently
+    await Promise.all([
+      player.save(),
+      auctionState.save(),
+      AuctionEvent.create({
+        eventType: "PLAYER_STARTED",
+        playerId: player.id,
+        playerName: player.name,
+        teamId: null,
+        teamName: null,
+        amount: player.basePrice,
+        details: { role: player.role, basePrice: player.basePrice },
+        timestamp: new Date(),
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

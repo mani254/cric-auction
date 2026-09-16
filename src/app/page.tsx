@@ -1,8 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import confetti from "canvas-confetti";
-import { IPlayer, ITeam, IAuctionState } from "@/types";
+import React, { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { CurrentPlayerCard } from "@/components/CurrentPlayerCard";
 import { TeamsPanel } from "@/components/TeamsPanel";
@@ -10,168 +8,39 @@ import { PlayerCatalogue } from "@/components/PlayerCatalogue";
 import { BudgetModal } from "@/components/BudgetModal";
 import { HistoryModal } from "@/components/HistoryModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { useAuctionStore } from "@/lib/store";
 
 export default function AuctionPage() {
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-
-  const [auctionState, setAuctionState] = useState<IAuctionState>({
-    sessionKey: "primary",
-    status: "SETUP",
-    currentPlayerId: null,
-    currentBid: 0,
-    currentTeamId: null,
-    currentTeamName: null,
-    bidHistory: [],
-  });
-
-  const [currentPlayer, setCurrentPlayer] = useState<IPlayer | null>(null);
-  const [teams, setTeams] = useState<ITeam[]>([]);
-  const [players, setPlayers] = useState<IPlayer[]>([]);
-  const [summary, setSummary] = useState({
-    total: 43,
-    sold: 0,
-    unsold: 0,
-    remaining: 43,
-    totalPurseSpent: 0,
-  });
-
-  // Modal states
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    type: "SOLD" | "UNSOLD" | "RESET";
-    title: string;
-    message: string;
-    confirmLabel: string;
-    confirmColor?: string;
-    action: () => Promise<void>;
-  }>({
-    isOpen: false,
-    type: "SOLD",
-    title: "",
-    message: "",
-    confirmLabel: "",
-    action: async () => {},
-  });
-
-  // Alert/Toast state
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-
-  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 4000);
-  };
-
-  // Fetch full state from backend
-  const refreshState = useCallback(async () => {
-    try {
-      const [auctionRes, playersRes] = await Promise.all([
-        fetch("/api/auction"),
-        fetch("/api/players"),
-      ]);
-
-      const auctionData = await auctionRes.json();
-      const playersData = await playersRes.json();
-
-      if (auctionData.success) {
-        setAuctionState(auctionData.auctionState);
-        setCurrentPlayer(auctionData.currentPlayer);
-        setTeams(auctionData.teams || []);
-        if (auctionData.summary) {
-          setSummary(auctionData.summary);
-        }
-      }
-
-      if (playersData.success) {
-        setPlayers(playersData.players || []);
-      }
-    } catch (err: any) {
-      console.error("Error refreshing auction state:", err);
-    } finally {
-      setInitialLoading(false);
-    }
-  }, []);
+  const {
+    auctionState,
+    currentPlayer,
+    teams,
+    players,
+    summary,
+    initialLoading,
+    actionLoading,
+    toast,
+    isBudgetModalOpen,
+    isHistoryModalOpen,
+    confirmModal,
+    setIsBudgetModalOpen,
+    setIsHistoryModalOpen,
+    setConfirmModal,
+    closeConfirmModal,
+    fetchInitialState,
+    selectTeam,
+    placeBid,
+    selectPlayer,
+    markSold,
+    markUnsold,
+    resetPlayer,
+    resetEntireAuction,
+    updateBudgets,
+  } = useAuctionStore();
 
   useEffect(() => {
-    refreshState();
-  }, [refreshState]);
-
-  // Select Player Action
-  const handleSelectPlayer = async (playerId: number, forceReauction: boolean = false) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auction/select-player", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, forceReauction }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || "Failed to select player", "error");
-      } else {
-        await refreshState();
-        showToast(data.message, "info");
-      }
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Select Team Action
-  const handleSelectTeam = async (teamId: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auction/select-team", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || "Failed to select team", "error");
-      } else {
-        await refreshState();
-      }
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Place Bid Action
-  const handlePlaceBid = async (
-    teamId: string,
-    increment?: number,
-    customAmount?: number,
-    isOpeningBid?: boolean
-  ) => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auction/bid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId, increment, customAmount, isOpeningBid }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        showToast(data.error || "Bid could not be placed", "error");
-      } else {
-        await refreshState();
-        showToast(data.message, "success");
-      }
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchInitialState();
+  }, [fetchInitialState]);
 
   // Prompt Sold Confirmation
   const promptSold = () => {
@@ -188,21 +57,8 @@ export default function AuctionPage() {
       confirmLabel: "Confirm SOLD",
       confirmColor: "#059669",
       action: async () => {
-        const res = await fetch("/api/auction/sold", { method: "POST" });
-        const data = await res.json();
-        if (!data.success) {
-          showToast(data.error || "Failed to finalize SOLD", "error");
-        } else {
-          // Confetti celebration!
-          confetti({
-            particleCount: 140,
-            spread: 90,
-            origin: { y: 0.6 },
-            colors: ["#059669", "#d97706", "#0284c7", "#ffffff"],
-          });
-          await refreshState();
-          showToast(data.message, "success");
-        }
+        closeConfirmModal();
+        await markSold();
       },
     });
   };
@@ -218,14 +74,8 @@ export default function AuctionPage() {
       confirmLabel: "Mark UNSOLD",
       confirmColor: "#e11d48",
       action: async () => {
-        const res = await fetch("/api/auction/unsold", { method: "POST" });
-        const data = await res.json();
-        if (!data.success) {
-          showToast(data.error || "Failed to mark UNSOLD", "error");
-        } else {
-          await refreshState();
-          showToast(data.message, "info");
-        }
+        closeConfirmModal();
+        await markUnsold();
       },
     });
   };
@@ -256,24 +106,8 @@ export default function AuctionPage() {
       confirmLabel: forceReauction ? "Re-auction Now" : "Reset Player",
       confirmColor: forceReauction ? "#0284c7" : "#d97706",
       action: async () => {
-        const resetRes = await fetch("/api/auction/reset-player", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId }),
-        });
-        const resetData = await resetRes.json();
-        if (!resetData.success) {
-          showToast(resetData.error || "Failed to reset player", "error");
-          return;
-        }
-
-        if (forceReauction) {
-          // Immediately select and start live bidding
-          await handleSelectPlayer(playerId, true);
-        } else {
-          await refreshState();
-          showToast(resetData.message, "success");
-        }
+        closeConfirmModal();
+        await resetPlayer(playerId, forceReauction);
       },
     });
   };
@@ -289,31 +123,10 @@ export default function AuctionPage() {
       confirmLabel: "Reset All",
       confirmColor: "#d97706",
       action: async () => {
-        const res = await fetch("/api/auction/reset", { method: "POST" });
-        const data = await res.json();
-        if (!data.success) {
-          showToast(data.error || "Failed to reset auction", "error");
-        } else {
-          await refreshState();
-          showToast("Auction session reset successfully!", "info");
-        }
+        closeConfirmModal();
+        await resetEntireAuction();
       },
     });
-  };
-
-  // Save Team Budgets
-  const handleSaveBudgets = async (newBudgets: Record<string, number>) => {
-    const res = await fetch("/api/teams/budget", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ budgets: newBudgets }),
-    });
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || "Failed to update budgets");
-    }
-    await refreshState();
-    showToast("Franchise budgets updated successfully!", "success");
   };
 
   if (initialLoading) {
@@ -420,19 +233,21 @@ export default function AuctionPage() {
             player={currentPlayer}
             auctionState={auctionState}
             teams={teams}
-            onSelectTeam={handleSelectTeam}
-            onPlaceBid={handlePlaceBid}
+            onSelectTeam={selectTeam}
+            onPlaceBid={(teamId, increment, customAmount, isOpeningBid) =>
+              placeBid({ teamId, increment, customAmount, isOpeningBid })
+            }
             onSold={promptSold}
             onUnsold={promptUnsold}
             onResetPlayer={handleResetPlayer}
-            loading={loading}
+            loading={false}
           />
 
           {/* Right Stage: Franchises Panel */}
           <TeamsPanel
             teams={teams}
             auctionState={auctionState}
-            onSelectTeam={handleSelectTeam}
+            onSelectTeam={selectTeam}
           />
         </div>
 
@@ -440,8 +255,8 @@ export default function AuctionPage() {
         <PlayerCatalogue
           players={players}
           currentPlayerId={auctionState.currentPlayerId}
-          onSelectPlayer={(id) => handleSelectPlayer(id, false)}
-          loading={loading}
+          onSelectPlayer={(id) => selectPlayer(id, false)}
+          loading={false}
         />
       </main>
 
@@ -450,7 +265,7 @@ export default function AuctionPage() {
         isOpen={isBudgetModalOpen}
         onClose={() => setIsBudgetModalOpen(false)}
         teams={teams}
-        onSaveBudgets={handleSaveBudgets}
+        onSaveBudgets={updateBudgets}
       />
 
       <HistoryModal
@@ -465,19 +280,9 @@ export default function AuctionPage() {
         message={confirmModal.message}
         confirmLabel={confirmModal.confirmLabel}
         confirmColor={confirmModal.confirmColor}
-        loading={loading}
-        onConfirm={async () => {
-          setLoading(true);
-          try {
-            await confirmModal.action();
-            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
-          } catch (err: any) {
-            showToast(err.message, "error");
-          } finally {
-            setLoading(false);
-          }
-        }}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        loading={actionLoading}
+        onConfirm={confirmModal.action}
+        onCancel={closeConfirmModal}
       />
     </div>
   );

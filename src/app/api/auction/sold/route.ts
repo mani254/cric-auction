@@ -28,8 +28,12 @@ export async function POST(req: NextRequest) {
     const teamId = auctionState.currentTeamId;
     const finalAmount = auctionState.currentBid;
 
-    // Prevent double-SOLD: check player status atomically
-    const player = await Player.findOne({ id: playerId });
+    // Fetch player and team in parallel
+    const [player, team] = await Promise.all([
+      Player.findOne({ id: playerId }),
+      Team.findOne({ id: teamId }),
+    ]);
+
     if (!player) {
       return NextResponse.json(
         { success: false, error: `Player ${playerId} not found.` },
@@ -44,7 +48,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const team = await Team.findOne({ id: teamId });
     if (!team) {
       return NextResponse.json(
         { success: false, error: `Winning team ${teamId} not found.` },
@@ -72,14 +75,12 @@ export async function POST(req: NextRequest) {
       role: player.role,
       soldPrice: finalAmount,
     });
-    await team.save();
 
     // 2. Mark player as SOLD
     player.auctionStatus = "SOLD";
     player.soldPrice = finalAmount;
     player.teamId = team.id;
     player.teamName = team.name;
-    await player.save();
 
     // 3. Clear active player from AuctionState
     auctionState.currentPlayerId = null;
@@ -87,28 +88,36 @@ export async function POST(req: NextRequest) {
     auctionState.currentTeamId = null;
     auctionState.currentTeamName = null;
     auctionState.bidHistory = [];
-    await auctionState.save();
 
-    // 4. Log SOLD event
-    await AuctionEvent.create({
-      eventType: "SOLD",
-      playerId: player.id,
-      playerName: player.name,
-      teamId: team.id,
-      teamName: team.name,
-      amount: finalAmount,
-      details: { role: player.role, soldPrice: finalAmount, teamRemainingBudget: team.remainingBudget },
-      timestamp: new Date(),
-    });
+    // 4. Run all database writes concurrently
+    await Promise.all([
+      team.save(),
+      player.save(),
+      auctionState.save(),
+      AuctionEvent.create({
+        eventType: "SOLD",
+        playerId: player.id,
+        playerName: player.name,
+        teamId: team.id,
+        teamName: team.name,
+        amount: finalAmount,
+        details: { role: player.role, soldPrice: finalAmount, teamRemainingBudget: team.remainingBudget },
+        timestamp: new Date(),
+      }),
+    ]);
 
-    // 5. Fetch next available player suggestion if any
-    const nextPlayer: any = await Player.findOne({ auctionStatus: "NOT_STARTED" }).sort({ id: 1 }).lean();
+    // 5. Fetch next player and all refreshed teams concurrently
+    const [nextPlayer, refreshedTeams]: [any, any] = await Promise.all([
+      Player.findOne({ auctionStatus: "NOT_STARTED" }).sort({ id: 1 }).lean(),
+      Team.find({}).sort({ id: 1 }).lean(),
+    ]);
 
     return NextResponse.json({
       success: true,
       message: `SOLD! ${player.name} sold to ${team.name} for ₹${finalAmount.toLocaleString("en-IN")}`,
       soldPlayer: player,
       winningTeam: team,
+      teams: refreshedTeams,
       auctionState,
       nextPlayerId: nextPlayer ? nextPlayer.id : null,
     });
