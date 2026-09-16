@@ -236,6 +236,8 @@ export default function AuctionPage() {
             player={currentPlayer}
             auctionState={auctionState}
             teams={teams}
+            nextAvailablePlayer={players.find((p) => p.auctionStatus === "NOT_STARTED") ?? null}
+            onStartAuction={(playerId) => selectPlayer(playerId, false)}
             onSelectTeam={selectTeam}
             onPlaceBid={(teamId, increment, customAmount, isOpeningBid) =>
               placeBid({ teamId, increment, customAmount, isOpeningBid })

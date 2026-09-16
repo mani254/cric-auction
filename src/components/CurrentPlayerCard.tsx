@@ -19,6 +19,8 @@ interface CurrentPlayerCardProps {
   player: IPlayer | null;
   auctionState: IAuctionState;
   teams: ITeam[];
+  nextAvailablePlayer: IPlayer | null;
+  onStartAuction: (playerId: number) => void;
   onSelectTeam: (teamId: string) => void;
   onPlaceBid: (
     teamId: string,
@@ -36,6 +38,8 @@ export const CurrentPlayerCard: React.FC<CurrentPlayerCardProps> = ({
   player,
   auctionState,
   teams,
+  nextAvailablePlayer,
+  onStartAuction,
   onSelectTeam,
   onPlaceBid,
   onSold,
@@ -100,9 +104,66 @@ export const CurrentPlayerCard: React.FC<CurrentPlayerCardProps> = ({
         >
           Podium Empty
         </h2>
-        <p style={{ color: "var(--text-muted)", maxWidth: "460px", fontSize: "0.95rem", lineHeight: 1.5 }}>
-          Open the <a href="/players" target="_blank" rel="noopener noreferrer" style={{ color: "#0284c7", fontWeight: 700 }}>Player Roster</a> to view all players and select one to start live franchise bidding. If Auto-Advance is ON, the next player will be selected automatically after each hammer.
-        </p>
+
+        {nextAvailablePlayer ? (
+          <>
+            <p style={{ color: "var(--text-muted)", maxWidth: "400px", fontSize: "0.9rem", lineHeight: 1.6, marginBottom: "28px" }}>
+              Kick off the auction by putting the first player on the podium.
+              Auto-Advance will take over after each hammer.
+            </p>
+
+            {/* Start Auction CTA */}
+            <button
+              onClick={() => onStartAuction(nextAvailablePlayer.id)}
+              disabled={loading}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "16px 36px",
+                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                border: "none",
+                borderRadius: "14px",
+                color: "#fff",
+                fontSize: "1.05rem",
+                fontWeight: 800,
+                cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: "0 8px 24px rgba(2,132,199,0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+                opacity: loading ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 12px 28px rgba(2,132,199,0.45)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "";
+                e.currentTarget.style.boxShadow = "0 8px 24px rgba(2,132,199,0.35)";
+              }}
+            >
+              <Play size={20} fill="#fff" />
+              Start Auction — {nextAvailablePlayer.name}
+            </button>
+
+            <p style={{ color: "var(--text-muted)", fontSize: "0.78rem", marginTop: "14px" }}>
+              Or{" "}
+              <a href="/players" target="_blank" rel="noopener noreferrer" style={{ color: "#0284c7", fontWeight: 700 }}>
+                open the Roster
+              </a>{" "}
+              to pick a specific player.
+            </p>
+          </>
+        ) : (
+          <p style={{ color: "var(--text-muted)", maxWidth: "400px", fontSize: "0.95rem", lineHeight: 1.5 }}>
+            🎉 All players have been auctioned! Check the{" "}
+            <a href="/players" target="_blank" rel="noopener noreferrer" style={{ color: "#0284c7", fontWeight: 700 }}>
+              Roster
+            </a>{" "}
+            for the full results.
+          </p>
+        )}
       </div>
     );
   }
