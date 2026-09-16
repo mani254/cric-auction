@@ -101,7 +101,7 @@ export const CurrentPlayerCard: React.FC<CurrentPlayerCardProps> = ({
           Podium Empty
         </h2>
         <p style={{ color: "var(--text-muted)", maxWidth: "460px", fontSize: "0.95rem", lineHeight: 1.5 }}>
-          Select any player from the roster table below to view their statistics or start live franchise bidding.
+          Open the <a href="/players" target="_blank" rel="noopener noreferrer" style={{ color: "#0284c7", fontWeight: 700 }}>Player Roster</a> to view all players and select one to start live franchise bidding. If Auto-Advance is ON, the next player will be selected automatically after each hammer.
         </p>
       </div>
     );
@@ -134,62 +134,73 @@ export const CurrentPlayerCard: React.FC<CurrentPlayerCardProps> = ({
           paddingBottom: "22px",
         }}
       >
-        <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
-          {/* Avatar Icon */}
+          <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
+          {/* Avatar / Player Photo */}
           <div
             style={{
-              width: "72px",
-              height: "72px",
+              width: "88px",
+              height: "88px",
               borderRadius: "16px",
-              background: isCompleted
-                ? player.auctionStatus === "SOLD"
-                  ? "#ecfdf5"
-                  : "#fff1f2"
-                : "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
-              border: `2px solid ${
+              overflow: "hidden",
+              border: `3px solid ${
                 isCompleted
                   ? player.auctionStatus === "SOLD"
                     ? "#a7f3d0"
                     : "#fecdd3"
                   : "#0284c7"
               }`,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: isCompleted ? "none" : "0 4px 14px rgba(2, 132, 199, 0.2)",
+              boxShadow: isCompleted ? "none" : "0 6px 20px rgba(2, 132, 199, 0.25)",
+              flexShrink: 0,
+              position: "relative",
             }}
           >
-            <span
-              style={{
-                fontSize: "0.75rem",
-                color: isCompleted
-                  ? player.auctionStatus === "SOLD"
-                    ? "#059669"
-                    : "#e11d48"
-                  : "#e0f2fe",
-                fontWeight: 800,
-              }}
-            >
-              #{player.id}
-            </span>
-            <span
-              className="font-display"
-              style={{
-                fontSize: "1.45rem",
-                fontWeight: 900,
-                color: isCompleted
-                  ? player.auctionStatus === "SOLD"
-                    ? "#047857"
-                    : "#be123c"
-                  : "#ffffff",
-              }}
-            >
-              {player.name.substring(0, 2).toUpperCase()}
-            </span>
+            {player.imageUrl ? (
+              <img
+                src={player.imageUrl}
+                alt={player.name}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: isCompleted
+                    ? player.auctionStatus === "SOLD"
+                      ? "#ecfdf5"
+                      : "#fff1f2"
+                    : "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    color: isCompleted ? (player.auctionStatus === "SOLD" ? "#059669" : "#e11d48") : "#e0f2fe",
+                    fontWeight: 800,
+                  }}
+                >
+                  #{player.id}
+                </span>
+                <span
+                  className="font-display"
+                  style={{
+                    fontSize: "1.4rem",
+                    fontWeight: 900,
+                    color: isCompleted ? (player.auctionStatus === "SOLD" ? "#047857" : "#be123c") : "#ffffff",
+                  }}
+                >
+                  {player.name.substring(0, 2).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
+
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
               <h2
                 className="font-display"

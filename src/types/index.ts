@@ -52,6 +52,7 @@ export interface IPlayer {
   auctionStatus: AuctionStatus;
   teamId: string | null;
   teamName: string | null;
+  imageUrl: string | null;
   statistics: IPlayerStatistics;
 }
 
@@ -60,6 +61,7 @@ export interface ITeamPlayer {
   name: string;
   role: PlayerRole;
   soldPrice: number;
+  imageUrl?: string | null;
 }
 
 export interface ITeam {

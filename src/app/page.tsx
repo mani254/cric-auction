@@ -4,7 +4,6 @@ import React, { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { CurrentPlayerCard } from "@/components/CurrentPlayerCard";
 import { TeamsPanel } from "@/components/TeamsPanel";
-import { PlayerCatalogue } from "@/components/PlayerCatalogue";
 import { BudgetModal } from "@/components/BudgetModal";
 import { HistoryModal } from "@/components/HistoryModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -20,6 +19,8 @@ export default function AuctionPage() {
     initialLoading,
     actionLoading,
     toast,
+    autoAdvance,
+    toggleAutoAdvance,
     isBudgetModalOpen,
     isHistoryModalOpen,
     confirmModal,
@@ -201,6 +202,8 @@ export default function AuctionPage() {
       <Navbar
         status={auctionState.status}
         summary={summary}
+        autoAdvance={autoAdvance}
+        onToggleAutoAdvance={toggleAutoAdvance}
         onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onResetAuction={promptReset}
@@ -251,13 +254,7 @@ export default function AuctionPage() {
           />
         </div>
 
-        {/* Arena Bottom: Player Catalogue & Roster */}
-        <PlayerCatalogue
-          players={players}
-          currentPlayerId={auctionState.currentPlayerId}
-          onSelectPlayer={(id) => selectPlayer(id, false)}
-          loading={false}
-        />
+        {/* Player Catalogue moved to /players route */}
       </main>
 
       {/* Modals */}

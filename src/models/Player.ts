@@ -56,6 +56,7 @@ const PlayerSchema = new Schema<IPlayer>(
     },
     teamId: { type: String, default: null },
     teamName: { type: String, default: null },
+    imageUrl: { type: String, default: null },
     statistics: { type: StatisticsSchema, required: true },
   },
   { timestamps: true }

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Gavel, Settings, History, RotateCcw, Activity } from "lucide-react";
+import { Gavel, Settings, History, RotateCcw, Activity, Users, Zap } from "lucide-react";
 
 interface NavbarProps {
   status: string;
@@ -12,6 +12,8 @@ interface NavbarProps {
     remaining: number;
     totalPurseSpent: number;
   };
+  autoAdvance: boolean;
+  onToggleAutoAdvance: () => void;
   onOpenBudgetModal: () => void;
   onOpenHistoryModal: () => void;
   onResetAuction: () => void;
@@ -20,6 +22,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   status,
   summary,
+  autoAdvance,
+  onToggleAutoAdvance,
   onOpenBudgetModal,
   onOpenHistoryModal,
   onResetAuction,
@@ -174,7 +178,56 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {/* Auto-Advance Toggle */}
+          <button
+            onClick={onToggleAutoAdvance}
+            title={autoAdvance ? "Auto-Advance is ON — next player loads automatically" : "Auto-Advance is OFF — select players manually"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              background: autoAdvance ? "#ecfdf5" : "#f8fafc",
+              border: `1px solid ${autoAdvance ? "#a7f3d0" : "#e2e8f0"}`,
+              color: autoAdvance ? "#059669" : "#94a3b8",
+              padding: "8px 14px",
+              borderRadius: "10px",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <Zap size={15} fill={autoAdvance ? "#059669" : "none"} />
+            Auto {autoAdvance ? "ON" : "OFF"}
+          </button>
+
+          {/* View Roster */}
+          <a
+            href="/players"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              background: "#ffffff",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+              padding: "8px 14px",
+              borderRadius: "10px",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "var(--shadow-sm)",
+              textDecoration: "none",
+              transition: "all 0.15s",
+            }}
+          >
+            <Users size={16} />
+            Roster
+          </a>
+
           <button
             onClick={onOpenBudgetModal}
             style={{

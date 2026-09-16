@@ -37,6 +37,8 @@ interface AuctionStore {
   initialLoading: boolean;
   actionLoading: boolean;
   toast: ToastState | null;
+  autoAdvance: boolean;
+  toggleAutoAdvance: () => void;
 
   // Modals
   isBudgetModalOpen: boolean;
@@ -69,6 +71,7 @@ interface AuctionStore {
   resetPlayer: (playerId: number, forceReauction?: boolean) => Promise<void>;
   resetEntireAuction: () => Promise<void>;
   updateBudgets: (newBudgets: Record<string, number>) => Promise<void>;
+  updatePlayerInStore: (updatedPlayer: IPlayer) => void;
 }
 
 export const useAuctionStore = create<AuctionStore>((set, get) => ({
@@ -95,6 +98,7 @@ export const useAuctionStore = create<AuctionStore>((set, get) => ({
   initialLoading: true,
   actionLoading: false,
   toast: null,
+  autoAdvance: true,
 
   isBudgetModalOpen: false,
   isHistoryModalOpen: false,
@@ -118,6 +122,7 @@ export const useAuctionStore = create<AuctionStore>((set, get) => ({
   },
 
   clearToast: () => set({ toast: null }),
+  toggleAutoAdvance: () => set((state) => ({ autoAdvance: !state.autoAdvance })),
   setIsBudgetModalOpen: (open) => set({ isBudgetModalOpen: open }),
   setIsHistoryModalOpen: (open) => set({ isHistoryModalOpen: open }),
 
@@ -520,6 +525,16 @@ export const useAuctionStore = create<AuctionStore>((set, get) => ({
         if (data.teams) {
           set({ teams: data.teams });
         }
+        // Auto-advance to next NOT_STARTED player
+        if (get().autoAdvance && data.nextPlayerId) {
+          setTimeout(() => get().selectPlayer(data.nextPlayerId, false), 600);
+        } else if (get().autoAdvance) {
+          // No more players — auction complete
+          set((state) => ({
+            auctionState: { ...state.auctionState, status: "COMPLETED" },
+          }));
+          get().showToast("🎉 Auction Complete! All players have been auctioned.", "success");
+        }
       }
     } catch (err: any) {
       set({
@@ -591,6 +606,16 @@ export const useAuctionStore = create<AuctionStore>((set, get) => ({
           currentPlayer,
         });
         get().showToast(data.error || "Failed to mark UNSOLD on server", "error");
+      } else {
+        // Auto-advance to next NOT_STARTED player
+        if (get().autoAdvance && data.nextPlayerId) {
+          setTimeout(() => get().selectPlayer(data.nextPlayerId, false), 600);
+        } else if (get().autoAdvance) {
+          set((state) => ({
+            auctionState: { ...state.auctionState, status: "COMPLETED" },
+          }));
+          get().showToast("🎉 Auction Complete! All players have been auctioned.", "success");
+        }
       }
     } catch (err: any) {
       set({
@@ -759,5 +784,13 @@ export const useAuctionStore = create<AuctionStore>((set, get) => ({
       get().showToast(err.message || "Network error updating budgets", "error");
       await get().refreshState(true);
     }
+  },
+
+  // Helper: update a single player in the local store (used by admin panel after editing)
+  updatePlayerInStore: (updatedPlayer: IPlayer) => {
+    set((state) => ({
+      players: state.players.map((p) => p.id === updatedPlayer.id ? updatedPlayer : p),
+      currentPlayer: state.currentPlayer?.id === updatedPlayer.id ? updatedPlayer : state.currentPlayer,
+    }));
   },
 }));
